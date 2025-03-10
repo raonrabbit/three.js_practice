@@ -1,12 +1,23 @@
-import { OrbitControls } from "@react-three/drei";
+import { Environment, useTexture } from "@react-three/drei";
+import { Avatar } from "./Avatar";
+import { useThree } from "@react-three/fiber";
 
-export const Experience = () => {
+export const Experience = ({ currentAnimation, setAnimation }) => {
+  const texture = useTexture("/textures/bank-background.jpg");
+  const viewport = useThree((state) => state.viewport);
+
   return (
     <>
-      <OrbitControls />
+      <Avatar
+        position={[0, -3, 5]}
+        scale={2}
+        animation={currentAnimation}
+        setAnimation={setAnimation}
+      />
+      <Environment preset="sunset" />
       <mesh>
-        <boxGeometry />
-        <meshNormalMaterial />
+        <planeGeometry args={[viewport.width, viewport.height]} />
+        <meshBasicMaterial map={texture} />
       </mesh>
     </>
   );
