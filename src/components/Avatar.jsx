@@ -10,7 +10,7 @@ export function Avatar({ animation, setAnimation, ...props }) {
   const { nodes, materials } = useGraph(clone);
   const group = useRef();
 
-  // FBX 애니메이션 로드
+  // Load FBX animations
   const idleFBX = useFBX("/animations/Idle.fbx");
   const bowFBX = useFBX("/animations/Bow.fbx");
   const walkFBX = useFBX("/animations/StartWalk.fbx");
@@ -24,47 +24,53 @@ export function Avatar({ animation, setAnimation, ...props }) {
   }, [idleFBX, bowFBX, walkFBX]);
 
   const { actions, mixer } = useAnimations(
-    idleFBX.animations[0] && bowFBX.animations[0] && walkFBX.animations[0]
-      ? [idleFBX.animations[0], bowFBX.animations[0], walkFBX.animations[0]]
-      : idleFBX.animations[0],
+    [idleFBX.animations[0], bowFBX.animations[0], walkFBX.animations[0]],
     group
   );
 
+  // Set Idle animation as default
   useEffect(() => {
-    if (actions) {
-      // 현재 실행 중인 애니메이션 찾기
-      const currentAction = Object.values(actions).find((action) =>
-        action.isRunning()
-      );
+    if (actions && actions["Idle"]) {
+      actions["Idle"].reset().fadeIn(0.5).play();
+    }
+  }, [actions]);
 
-      // crossFadeTo()로 자연스럽게 전환
-      if (currentAction && currentAction !== actions[animation]) {
-        currentAction.crossFadeTo(actions[animation], 0.5, false);
-      }
+  // Handle animation transitions
+  useEffect(() => {
+    if (!actions || !actions[animation]) return;
 
-      // 현재 애니메이션 실행
-      if (actions[animation]) {
-        console.log("dfdf");
-        actions[animation].play(); // reset() 제거하여 기존 애니메이션 흐름 유지
+    // Fade out all other actions
+    const newAction = playAnimation(animation);
 
-        // 애니메이션 종료 후 Idle로 전환
-        if (animation !== "Idle") {
-          actions[animation].setLoop(THREE.LoopOnce, 1);
-          actions[animation].clampWhenFinished = true;
+    // Handle non-looping animations (e.g., Bow)
+    if (animation !== "Idle") {
+      newAction.setLoop(THREE.LoopOnce, 1);
+      //newAction.clampWhenFinished = true;
 
-          mixer.addEventListener("finished", () => {
-            setAnimation("Idle"); // 애니메이션 종료 후 Idle로 복귀
-          });
-        } else {
-          actions["Idle"].setLoop(THREE.LoopRepeat);
-        }
-      }
-    } else {
-      console.log("yeah?");
-      setAnimation("Idle");
-      actions["Idle"].setLoop(THREE.LoopRepeat);
+      const onAnimationFinished = () => {
+        playAnimation("Idle");
+      };
+
+      mixer.addEventListener("finished", onAnimationFinished);
+
+      return () => {
+        mixer.removeEventListener("finished", onAnimationFinished);
+      };
     }
   }, [animation, actions, setAnimation, mixer]);
+
+  const playAnimation = (animation) => {
+    Object.values(actions).forEach((action) => {
+      if (action.isRunning() && action !== actions[animation]) {
+        action.fadeOut(0.5);
+      }
+    });
+
+    // Fade in new action
+    const newAction = actions[animation];
+    newAction.reset().fadeIn(0.5).play();
+    return newAction;
+  };
 
   return (
     <group ref={group} {...props}>
